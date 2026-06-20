@@ -23,6 +23,10 @@ GPIO uses `HAL_GPIO_Init()` and `HAL_GPIO_TogglePin()`. `HAL_Init()` runs before
 the scheduler; the FreeRTOS tick hook keeps `HAL_GetTick()` in sync afterward.
 In a task, prefer `vTaskDelay()` over blocking with `HAL_Delay()`.
 
+PA8 is configured as `TIM1_CH1` PWM for a servo-style 20 ms period. Its pulse
+width changes from 1.0 ms to 1.5 ms to 2.0 ms every second; change
+`PWM_STEP_MS` in `Src/main.c` to adjust that interval.
+
 ## Adding another HAL peripheral
 
 The project compiles the STM32F4 HAL source directory directly from the HAL

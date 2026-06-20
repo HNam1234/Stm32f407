@@ -4,9 +4,11 @@
 /* Enable only the HAL drivers used by the application. */
 #define HAL_MODULE_ENABLED
 #define HAL_CORTEX_MODULE_ENABLED
+#define HAL_DMA_MODULE_ENABLED
 #define HAL_FLASH_MODULE_ENABLED
 #define HAL_GPIO_MODULE_ENABLED
 #define HAL_RCC_MODULE_ENABLED
+#define HAL_TIM_MODULE_ENABLED
 
 #define HSE_VALUE                 8000000U
 #define HSI_VALUE                 16000000U
@@ -24,9 +26,11 @@
 #define assert_param( expr )      ( ( void ) 0U )
 
 #include "stm32f4xx_hal_cortex.h"
+#include "stm32f4xx_hal_dma.h"
 #include "stm32f4xx_hal_flash.h"
 #include "stm32f4xx_hal_rcc.h"
 #include "stm32f4xx_hal_gpio.h"
+#include "stm32f4xx_hal_tim.h"
 
 /* To add a peripheral, enable its HAL_<NAME>_MODULE_ENABLED macro above
  * and include its stm32f4xx_hal_<name>.h header here. Its .c source is
