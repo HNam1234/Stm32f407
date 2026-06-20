@@ -27,6 +27,9 @@ PA8 is configured as `TIM1_CH1` PWM for a servo-style 20 ms period. Its pulse
 width changes from 1.0 ms to 1.5 ms to 2.0 ms every second; change
 `PWM_STEP_MS` in `Src/main.c` to adjust that interval.
 
+PWM changes are logged over USART2 TX on PA2 at 115200 baud, 8N1. Connect a
+3.3 V USB-to-UART adapter's RX pin to PA2 and connect the grounds together.
+
 ## Adding another HAL peripheral
 
 The project compiles the STM32F4 HAL source directory directly from the HAL
