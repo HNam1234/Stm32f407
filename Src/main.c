@@ -4,6 +4,7 @@
 
 #if defined(DEBUG)
 #include <stdio.h>
+extern void initialise_monitor_handles(void);
 #define log_printf(...)  do { printf(__VA_ARGS__); fflush(stdout); } while (0)
 #else
 #define log_printf(...)  do { } while (0)
@@ -256,6 +257,11 @@ static void pwm_task(void *argument)
 int main(void)
 {
     HAL_Init();
+
+#if defined(DEBUG)
+    initialise_monitor_handles();
+    log_printf("[boot] started\r\n");
+#endif
 
     led_init();
     pwm_init();

@@ -30,7 +30,8 @@ width changes from 1.0 ms to 1.5 ms to 2.0 ms every second; change
 For a common HD44780 LCD with a PCF8574 I2C backpack, I2C2 uses PB10 (SCL)
 and PB11 (SDA) at 100 kHz and prints `Hello`. LCD initialization runs in its
 own FreeRTOS task. The Debug build scans the PCF8574 address range `0x20-0x3F`
-and writes the result to the semihosting console.
+and writes the result to the semihosting console. It uses the Debug-only
+`rdimon` syscalls, so the log starts with `[boot] started`.
 
 ## Adding another HAL peripheral
 
