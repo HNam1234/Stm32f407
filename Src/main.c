@@ -4,7 +4,10 @@
 
 #if defined(DEBUG)
 #include <stdio.h>
-#define log_pwm(pulse_us)  printf("PA8 PWM: %lu us\r\n", (unsigned long)(pulse_us))
+#define log_pwm(pulse_us)  do { \
+    printf("PA8 PWM: %lu us\r\n", (unsigned long)(pulse_us)); \
+    fflush(stdout); \
+} while (0)
 #else
 #define log_pwm(pulse_us)  ((void)(pulse_us))
 #endif
