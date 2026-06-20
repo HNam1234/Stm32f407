@@ -27,6 +27,11 @@ PA8 is configured as `TIM1_CH1` PWM for a servo-style 20 ms period. Its pulse
 width changes from 1.0 ms to 1.5 ms to 2.0 ms every second; change
 `PWM_STEP_MS` in `Src/main.c` to adjust that interval.
 
+For a common HD44780 LCD with a PCF8574 I2C backpack, I2C2 uses PB10 (SCL)
+and PB11 (SDA) at 100 kHz and prints `Hello`. The default backpack address is
+`0x27`; change `LCD_I2C_ADDR` in `Src/main.c` to `(0x3FU << 1U)` if your module
+uses address `0x3F`.
+
 ## Adding another HAL peripheral
 
 The project compiles the STM32F4 HAL source directory directly from the HAL

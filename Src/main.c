@@ -6,7 +6,14 @@
 #define PWM_PERIOD_US    20000U
 #define PWM_STEP_MS      1000U
 #define PWM_STEPS        3U
+#define LCD_I2C_ADDR     (0x27U << 1U)
+#define LCD_I2C_TIMEOUT  100U
 
+#define LCD_RS           0x01U
+#define LCD_ENABLE       0x04U
+#define LCD_BACKLIGHT    0x08U
+
+static I2C_HandleTypeDef lcd_i2c;
 static TIM_HandleTypeDef pwm_timer;
 
 static void led_init(void)
@@ -33,6 +40,99 @@ static void blink_task(void *argument)
         HAL_GPIO_TogglePin(GPIOD, LEDS);
         vTaskDelay(pdMS_TO_TICKS(500U));
     }
+}
+
+static HAL_StatusTypeDef lcd_write4(uint8_t nibble, uint8_t rs)
+{
+    uint8_t data[3];
+
+    data[0] = (nibble & 0xF0U) | LCD_BACKLIGHT | rs;
+    data[1] = data[0] | LCD_ENABLE;
+    data[2] = data[0];
+
+    return HAL_I2C_Master_Transmit(&lcd_i2c, LCD_I2C_ADDR, data,
+                                   sizeof(data), LCD_I2C_TIMEOUT);
+}
+
+static HAL_StatusTypeDef lcd_write(uint8_t value, uint8_t rs)
+{
+    if (lcd_write4(value, rs) != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+
+    return lcd_write4(value << 4U, rs);
+}
+
+static HAL_StatusTypeDef lcd_init(void)
+{
+    HAL_Delay(50U);
+
+    if (lcd_write4(0x30U, 0U) != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+    HAL_Delay(5U);
+
+    if (lcd_write4(0x30U, 0U) != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+    HAL_Delay(1U);
+
+    if ((lcd_write4(0x30U, 0U) != HAL_OK) ||
+        (lcd_write4(0x20U, 0U) != HAL_OK) ||
+        (lcd_write(0x28U, 0U) != HAL_OK) ||
+        (lcd_write(0x08U, 0U) != HAL_OK) ||
+        (lcd_write(0x01U, 0U) != HAL_OK))
+    {
+        return HAL_ERROR;
+    }
+    HAL_Delay(2U);
+
+    return lcd_write(0x06U, 0U) == HAL_OK &&
+           lcd_write(0x0CU, 0U) == HAL_OK ? HAL_OK : HAL_ERROR;
+}
+
+static HAL_StatusTypeDef lcd_print(const char *text)
+{
+    while (*text != '\0')
+    {
+        if (lcd_write((uint8_t)*text, LCD_RS) != HAL_OK)
+        {
+            return HAL_ERROR;
+        }
+        text++;
+    }
+
+    return HAL_OK;
+}
+
+static HAL_StatusTypeDef i2c_init(void)
+{
+    GPIO_InitTypeDef gpio = {0};
+
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_I2C2_CLK_ENABLE();
+
+    gpio.Pin = GPIO_PIN_10 | GPIO_PIN_11;
+    gpio.Mode = GPIO_MODE_AF_OD;
+    gpio.Pull = GPIO_NOPULL;
+    gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    gpio.Alternate = GPIO_AF4_I2C2;
+    HAL_GPIO_Init(GPIOB, &gpio);
+
+    lcd_i2c.Instance = I2C2;
+    lcd_i2c.Init.ClockSpeed = 100000U;
+    lcd_i2c.Init.DutyCycle = I2C_DUTYCYCLE_2;
+    lcd_i2c.Init.OwnAddress1 = 0U;
+    lcd_i2c.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+    lcd_i2c.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+    lcd_i2c.Init.OwnAddress2 = 0U;
+    lcd_i2c.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+    lcd_i2c.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+
+    return HAL_I2C_Init(&lcd_i2c);
 }
 
 static void pwm_init(void)
@@ -95,6 +195,11 @@ int main(void)
 
     led_init();
     pwm_init();
+
+    if ((i2c_init() == HAL_OK) && (lcd_init() == HAL_OK))
+    {
+        (void)lcd_print("Hello");
+    }
 
     if (xTaskCreate(blink_task, "blink", 128U, NULL, 1U, NULL) != pdPASS)
     {
