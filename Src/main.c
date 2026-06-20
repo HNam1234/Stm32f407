@@ -2,48 +2,50 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#define LEDS    ( GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15 )
+#define LEDS    (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15)
 
-static void led_init( void )
+static void led_init(void)
 {
-	GPIO_InitTypeDef gpio = { 0 };
+    GPIO_InitTypeDef gpio = {0};
 
-	__HAL_RCC_GPIOD_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
 
-	gpio.Pin = LEDS;
-	gpio.Mode = GPIO_MODE_OUTPUT_PP;
-	gpio.Pull = GPIO_NOPULL;
-	gpio.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init( GPIOD, &gpio );
+    gpio.Pin = LEDS;
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull = GPIO_NOPULL;
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;
 
-	HAL_GPIO_WritePin( GPIOD, LEDS, GPIO_PIN_RESET );
+    HAL_GPIO_Init(GPIOD, &gpio);
+    HAL_GPIO_WritePin(GPIOD, LEDS, GPIO_PIN_RESET);
 }
 
-static void blink_task( void * argument )
+static void blink_task(void *argument)
 {
-	( void ) argument;
+    (void)argument;
 
-	for( ;; )
-	{
-		HAL_GPIO_TogglePin( GPIOD, LEDS );
-		vTaskDelay( pdMS_TO_TICKS( 500U ) );
-	}
+    for (;;)
+    {
+        HAL_GPIO_TogglePin(GPIOD, LEDS);
+        vTaskDelay(pdMS_TO_TICKS(500U));
+    }
 }
 
-int main( void )
+int main(void)
 {
-	led_init();
+    HAL_Init();
 
-	if( xTaskCreate( blink_task, "blink", 128U, NULL, 1U, NULL ) != pdPASS )
-	{
-		for( ;; )
-		{
-		}
-	}
+    led_init();
 
-	vTaskStartScheduler();
+    if (xTaskCreate(blink_task, "blink", 128U, NULL, 1U, NULL) != pdPASS)
+    {
+        for (;;)
+        {
+        }
+    }
 
-	for( ;; )
-	{
-	}
+    vTaskStartScheduler();
+
+    for (;;)
+    {
+    }
 }
