@@ -1,0 +1,4 @@
+Debug/
+Release/
+*.bak
+*.launch.user
