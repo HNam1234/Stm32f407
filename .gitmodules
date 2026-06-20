@@ -1,3 +1,12 @@
 [submodule "Middlewares/Third_Party/FreeRTOS-Kernel"]
 	path = Middlewares/Third_Party/FreeRTOS-Kernel
 	url = https://github.com/FreeRTOS/FreeRTOS-Kernel.git
+[submodule "Middlewares/ST/STM32F4xx_HAL_Driver"]
+	path = Middlewares/ST/STM32F4xx_HAL_Driver
+	url = https://github.com/STMicroelectronics/stm32f4xx_hal_driver.git
+[submodule "Middlewares/ST/CMSIS-Device-F4"]
+	path = Middlewares/ST/CMSIS-Device-F4
+	url = https://github.com/STMicroelectronics/cmsis-device-f4.git
+[submodule "Middlewares/ARM/CMSIS_5"]
+	path = Middlewares/ARM/CMSIS_5
+	url = https://github.com/ARM-software/CMSIS_5.git
