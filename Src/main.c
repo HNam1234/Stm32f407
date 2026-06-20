@@ -2,16 +2,6 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#if defined(DEBUG)
-#include <stdio.h>
-#define log_pwm(pulse_us)  do { \
-    printf("PA8 PWM: %lu us\r\n", (unsigned long)(pulse_us)); \
-    fflush(stdout); \
-} while (0)
-#else
-#define log_pwm(pulse_us)  ((void)(pulse_us))
-#endif
-
 #define LEDS    (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15)
 #define PWM_PERIOD_US    20000U
 #define PWM_STEP_MS      1000U
@@ -94,7 +84,6 @@ static void pwm_task(void *argument)
     for (;;)
     {
         __HAL_TIM_SET_COMPARE(&pwm_timer, TIM_CHANNEL_1, pulse_us[step]);
-        log_pwm(pulse_us[step]);
         step = (step + 1U) % PWM_STEPS;
         vTaskDelay(pdMS_TO_TICKS(PWM_STEP_MS));
     }
@@ -114,7 +103,7 @@ int main(void)
         }
     }
 
-    if (xTaskCreate(pwm_task, "pwm", 256U, NULL, 1U, NULL) != pdPASS)
+    if (xTaskCreate(pwm_task, "pwm", 128U, NULL, 1U, NULL) != pdPASS)
     {
         for (;;)
         {

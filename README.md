@@ -27,10 +27,6 @@ PA8 is configured as `TIM1_CH1` PWM for a servo-style 20 ms period. Its pulse
 width changes from 1.0 ms to 1.5 ms to 2.0 ms every second; change
 `PWM_STEP_MS` in `Src/main.c` to adjust that interval.
 
-The Debug build logs PWM changes with `printf()` through semihosting; the text
-appears in the STM32CubeIDE debug console. Release builds compile those logs
-out, so no UART pin or external adapter is required.
-
 ## Adding another HAL peripheral
 
 The project compiles the STM32F4 HAL source directory directly from the HAL
