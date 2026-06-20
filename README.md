@@ -30,7 +30,7 @@ width changes from 1.0 ms to 1.5 ms to 2.0 ms every second; change
 For a common HD44780 LCD with a PCF8574 I2C backpack, I2C2 uses PB10 (SCL)
 and PB11 (SDA) at 100 kHz and prints `Hello`. The default backpack address is
 `0x27`; change `LCD_I2C_ADDR` in `Src/main.c` to `(0x3FU << 1U)` if your module
-uses address `0x3F`.
+uses address `0x3F`. LCD initialization runs in its own FreeRTOS task.
 
 ## Adding another HAL peripheral
 

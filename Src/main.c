@@ -66,19 +66,19 @@ static HAL_StatusTypeDef lcd_write(uint8_t value, uint8_t rs)
 
 static HAL_StatusTypeDef lcd_init(void)
 {
-    HAL_Delay(50U);
+    vTaskDelay(pdMS_TO_TICKS(50U));
 
     if (lcd_write4(0x30U, 0U) != HAL_OK)
     {
         return HAL_ERROR;
     }
-    HAL_Delay(5U);
+    vTaskDelay(pdMS_TO_TICKS(5U));
 
     if (lcd_write4(0x30U, 0U) != HAL_OK)
     {
         return HAL_ERROR;
     }
-    HAL_Delay(1U);
+    vTaskDelay(pdMS_TO_TICKS(1U));
 
     if ((lcd_write4(0x30U, 0U) != HAL_OK) ||
         (lcd_write4(0x20U, 0U) != HAL_OK) ||
@@ -88,7 +88,7 @@ static HAL_StatusTypeDef lcd_init(void)
     {
         return HAL_ERROR;
     }
-    HAL_Delay(2U);
+    vTaskDelay(pdMS_TO_TICKS(2U));
 
     return lcd_write(0x06U, 0U) == HAL_OK &&
            lcd_write(0x0CU, 0U) == HAL_OK ? HAL_OK : HAL_ERROR;
@@ -133,6 +133,21 @@ static HAL_StatusTypeDef i2c_init(void)
     lcd_i2c.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
 
     return HAL_I2C_Init(&lcd_i2c);
+}
+
+static void lcd_task(void *argument)
+{
+    (void)argument;
+
+    if ((i2c_init() == HAL_OK) && (lcd_init() == HAL_OK))
+    {
+        (void)lcd_print("Hello");
+    }
+
+    for (;;)
+    {
+        vTaskDelay(pdMS_TO_TICKS(1000U));
+    }
 }
 
 static void pwm_init(void)
@@ -196,11 +211,6 @@ int main(void)
     led_init();
     pwm_init();
 
-    if ((i2c_init() == HAL_OK) && (lcd_init() == HAL_OK))
-    {
-        (void)lcd_print("Hello");
-    }
-
     if (xTaskCreate(blink_task, "blink", 128U, NULL, 1U, NULL) != pdPASS)
     {
         for (;;)
@@ -209,6 +219,13 @@ int main(void)
     }
 
     if (xTaskCreate(pwm_task, "pwm", 128U, NULL, 1U, NULL) != pdPASS)
+    {
+        for (;;)
+        {
+        }
+    }
+
+    if (xTaskCreate(lcd_task, "lcd", 256U, NULL, 1U, NULL) != pdPASS)
     {
         for (;;)
         {
