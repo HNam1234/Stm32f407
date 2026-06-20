@@ -2,11 +2,17 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#if defined(DEBUG)
+#include <stdio.h>
+#define log_printf(...)  do { printf(__VA_ARGS__); fflush(stdout); } while (0)
+#else
+#define log_printf(...)  do { } while (0)
+#endif
+
 #define LEDS    (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15)
 #define PWM_PERIOD_US    20000U
 #define PWM_STEP_MS      1000U
 #define PWM_STEPS        3U
-#define LCD_I2C_ADDR     (0x27U << 1U)
 #define LCD_I2C_TIMEOUT  100U
 
 #define LCD_RS           0x01U
@@ -15,6 +21,7 @@
 
 static I2C_HandleTypeDef lcd_i2c;
 static TIM_HandleTypeDef pwm_timer;
+static uint16_t lcd_i2c_addr;
 
 static void led_init(void)
 {
@@ -50,7 +57,7 @@ static HAL_StatusTypeDef lcd_write4(uint8_t nibble, uint8_t rs)
     data[1] = data[0] | LCD_ENABLE;
     data[2] = data[0];
 
-    return HAL_I2C_Master_Transmit(&lcd_i2c, LCD_I2C_ADDR, data,
+    return HAL_I2C_Master_Transmit(&lcd_i2c, lcd_i2c_addr, data,
                                    sizeof(data), LCD_I2C_TIMEOUT);
 }
 
@@ -135,13 +142,55 @@ static HAL_StatusTypeDef i2c_init(void)
     return HAL_I2C_Init(&lcd_i2c);
 }
 
+static uint16_t lcd_find_address(void)
+{
+    uint16_t address;
+
+    for (address = 0x20U; address <= 0x3FU; address++)
+    {
+        if (HAL_I2C_IsDeviceReady(&lcd_i2c, address << 1U, 2U,
+                                  LCD_I2C_TIMEOUT) == HAL_OK)
+        {
+            return address << 1U;
+        }
+    }
+
+    return 0U;
+}
+
 static void lcd_task(void *argument)
 {
+    HAL_StatusTypeDef status;
+
     (void)argument;
 
-    if ((i2c_init() == HAL_OK) && (lcd_init() == HAL_OK))
+    log_printf("\r\n[lcd] task started\r\n");
+
+    status = i2c_init();
+    log_printf("[lcd] I2C2 init: %d\r\n", (int)status);
+
+    if (status == HAL_OK)
     {
-        (void)lcd_print("Hello");
+        lcd_i2c_addr = lcd_find_address();
+
+        if (lcd_i2c_addr == 0U)
+        {
+            log_printf("[lcd] no PCF8574 at 0x20-0x3F\r\n");
+        }
+        else
+        {
+            log_printf("[lcd] found at 0x%02lX\r\n",
+                       (unsigned long)(lcd_i2c_addr >> 1U));
+
+            status = lcd_init();
+            log_printf("[lcd] init: %d\r\n", (int)status);
+
+            if (status == HAL_OK)
+            {
+                status = lcd_print("Hello");
+                log_printf("[lcd] print: %d\r\n", (int)status);
+            }
+        }
     }
 
     for (;;)
