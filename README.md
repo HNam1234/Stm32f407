@@ -33,6 +33,10 @@ own FreeRTOS task. The Debug build scans the PCF8574 address range `0x20-0x3F`
 and writes the result to the semihosting console. It uses the Debug-only
 `rdimon` syscalls, so the log starts with `[boot] started`.
 
+UART4 receives data from an ESP32 at 115200 baud, 8 data bits, no parity and
+one stop bit (8N1). Its pins are PA0 (UART4_TX) and PA1 (UART4_RX). The Debug
+console prints complete received text lines prefixed with `[uart4] RX:`.
+
 ## Adding another HAL peripheral
 
 The project compiles the STM32F4 HAL source directory directly from the HAL

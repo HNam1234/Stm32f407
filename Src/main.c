@@ -1,5 +1,6 @@
 #include "stm32f4xx_hal.h"
 #include "FreeRTOS.h"
+#include "queue.h"
 #include "task.h"
 
 #if defined(DEBUG)
@@ -15,6 +16,7 @@ extern void initialise_monitor_handles(void);
 #define PWM_STEP_MS      1000U
 #define PWM_STEPS        3U
 #define LCD_I2C_TIMEOUT  100U
+#define UART4_RX_QUEUE_LENGTH 64U
 
 #define LCD_RS           0x01U
 #define LCD_ENABLE       0x04U
@@ -22,7 +24,10 @@ extern void initialise_monitor_handles(void);
 
 static I2C_HandleTypeDef lcd_i2c;
 static TIM_HandleTypeDef pwm_timer;
+static UART_HandleTypeDef esp_uart;
 static uint16_t lcd_i2c_addr;
+static QueueHandle_t uart4_rx_queue;
+static uint8_t uart4_rx_byte;
 
 static void led_init(void)
 {
@@ -254,6 +259,97 @@ static void pwm_task(void *argument)
     }
 }
 
+static HAL_StatusTypeDef uart4_init(void)
+{
+    GPIO_InitTypeDef gpio = {0};
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_UART4_CLK_ENABLE();
+
+    /* PA0 = UART4_TX, PA1 = UART4_RX (both alternate function 8). */
+    gpio.Pin = GPIO_PIN_0 | GPIO_PIN_1;
+    gpio.Mode = GPIO_MODE_AF_PP;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    gpio.Alternate = GPIO_AF8_UART4;
+    HAL_GPIO_Init(GPIOA, &gpio);
+
+    esp_uart.Instance = UART4;
+    esp_uart.Init.BaudRate = 115200U;
+    esp_uart.Init.WordLength = UART_WORDLENGTH_8B;
+    esp_uart.Init.StopBits = UART_STOPBITS_1;
+    esp_uart.Init.Parity = UART_PARITY_NONE;
+    esp_uart.Init.Mode = UART_MODE_TX_RX;
+    esp_uart.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    esp_uart.Init.OverSampling = UART_OVERSAMPLING_16;
+
+    if (HAL_UART_Init(&esp_uart) != HAL_OK)
+    {
+        return HAL_ERROR;
+    }
+
+    HAL_NVIC_SetPriority(UART4_IRQn, 5U, 0U);
+    HAL_NVIC_EnableIRQ(UART4_IRQn);
+
+    return HAL_UART_Receive_IT(&esp_uart, &uart4_rx_byte, 1U);
+}
+
+void UART4_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&esp_uart);
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    BaseType_t task_woken = pdFALSE;
+
+    if ((huart->Instance == UART4) && (uart4_rx_queue != NULL))
+    {
+        (void)xQueueSendFromISR(uart4_rx_queue, &uart4_rx_byte, &task_woken);
+        (void)HAL_UART_Receive_IT(&esp_uart, &uart4_rx_byte, 1U);
+        portYIELD_FROM_ISR(task_woken);
+    }
+}
+
+static void uart4_task(void *argument)
+{
+    char line[64];
+    uint8_t length = 0U;
+    uint8_t byte;
+
+    (void)argument;
+
+    log_printf("[uart4] ready: 115200 8N1\r\n");
+
+    for (;;)
+    {
+        if (xQueueReceive(uart4_rx_queue, &byte, portMAX_DELAY) == pdPASS)
+        {
+            if ((byte == '\r') || (byte == '\n'))
+            {
+                if (length > 0U)
+                {
+                    line[length] = '\0';
+                    log_printf("[uart4] RX: %s\r\n", line);
+                    length = 0U;
+                }
+            }
+            else if ((byte >= 32U) && (byte <= 126U))
+            {
+                if (length < (sizeof(line) - 1U))
+                {
+                    line[length++] = (char)byte;
+                }
+                else
+                {
+                    line[length] = '\0';
+                    log_printf("[uart4] RX: %s\r\n", line);
+                    length = 0U;
+                }
+            }
+        }
+    }
+}
 int main(void)
 {
     HAL_Init();
@@ -266,6 +362,13 @@ int main(void)
     led_init();
     pwm_init();
 
+    uart4_rx_queue = xQueueCreate(UART4_RX_QUEUE_LENGTH, sizeof(uart4_rx_byte));
+    if ((uart4_rx_queue == NULL) || (uart4_init() != HAL_OK))
+    {
+        for (;;)
+        {
+        }
+    }
     if (xTaskCreate(blink_task, "blink", 128U, NULL, 1U, NULL) != pdPASS)
     {
         for (;;)
@@ -287,6 +390,12 @@ int main(void)
         }
     }
 
+    if (xTaskCreate(uart4_task, "uart4", 256U, NULL, 1U, NULL) != pdPASS)
+    {
+        for (;;)
+        {
+        }
+    }
     vTaskStartScheduler();
 
     for (;;)

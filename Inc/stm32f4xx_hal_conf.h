@@ -10,6 +10,7 @@
 #define HAL_I2C_MODULE_ENABLED
 #define HAL_RCC_MODULE_ENABLED
 #define HAL_TIM_MODULE_ENABLED
+#define HAL_UART_MODULE_ENABLED
 
 #define HSE_VALUE                 8000000U
 #define HSI_VALUE                 16000000U
@@ -33,6 +34,7 @@
 #include "stm32f4xx_hal_gpio.h"
 #include "stm32f4xx_hal_i2c.h"
 #include "stm32f4xx_hal_tim.h"
+#include "stm32f4xx_hal_uart.h"
 
 /* To add a peripheral, enable its HAL_<NAME>_MODULE_ENABLED macro above
  * and include its stm32f4xx_hal_<name>.h header here. Its .c source is
