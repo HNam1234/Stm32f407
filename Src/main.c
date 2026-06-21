@@ -2,33 +2,41 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
+#include <stdio.h>
 
 #if defined(DEBUG)
-#include <stdio.h>
 extern void initialise_monitor_handles(void);
-#define log_printf(...)  do { printf(__VA_ARGS__); fflush(stdout); } while (0)
+#define log_printf(...)      \
+    do                       \
+    {                        \
+        printf(__VA_ARGS__); \
+        fflush(stdout);      \
+    } while (0)
 #else
-#define log_printf(...)  do { } while (0)
+#define log_printf(...) \
+    do                  \
+    {                   \
+    } while (0)
 #endif
 
-#define LEDS    (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15)
-#define PWM_PERIOD_US    20000U
-#define PWM_STEP_MS      1000U
-#define PWM_STEPS        3U
-#define LCD_I2C_TIMEOUT  100U
+#define LEDS (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15)
+#define PWM_PERIOD_US 20000U
+#define PWM_STEP_MS 1000U
+#define PWM_STEPS 3U
+#define LCD_I2C_TIMEOUT 100U
 #define UART4_RX_QUEUE_LENGTH 64U
 
-#define LCD_RS           0x01U
-#define LCD_ENABLE       0x04U
-#define LCD_BACKLIGHT    0x08U
+#define LCD_RS 0x01U
+#define LCD_ENABLE 0x04U
+#define LCD_BACKLIGHT 0x08U
 
 static I2C_HandleTypeDef lcd_i2c;
 static TIM_HandleTypeDef pwm_timer;
 static UART_HandleTypeDef esp_uart;
 static uint16_t lcd_i2c_addr;
+static volatile uint32_t servo_angle = 0U;
 static QueueHandle_t uart4_rx_queue;
 static uint8_t uart4_rx_byte;
-
 static void led_init(void)
 {
     GPIO_InitTypeDef gpio = {0};
@@ -77,6 +85,22 @@ static HAL_StatusTypeDef lcd_write(uint8_t value, uint8_t rs)
     return lcd_write4(value << 4U, rs);
 }
 
+static HAL_StatusTypeDef lcd_set_cursor(uint8_t row, uint8_t col)
+{
+    uint8_t addr;
+
+    if (row == 0U)
+    {
+        addr = col;
+    }
+    else
+    {
+        addr = 0x40U + col;
+    }
+
+    return lcd_write(0x80U | addr, 0U);
+}
+
 static HAL_StatusTypeDef lcd_init(void)
 {
     vTaskDelay(pdMS_TO_TICKS(50U));
@@ -104,7 +128,9 @@ static HAL_StatusTypeDef lcd_init(void)
     vTaskDelay(pdMS_TO_TICKS(2U));
 
     return lcd_write(0x06U, 0U) == HAL_OK &&
-           lcd_write(0x0CU, 0U) == HAL_OK ? HAL_OK : HAL_ERROR;
+                   lcd_write(0x0CU, 0U) == HAL_OK
+               ? HAL_OK
+               : HAL_ERROR;
 }
 
 static HAL_StatusTypeDef lcd_print(const char *text)
@@ -130,7 +156,7 @@ static HAL_StatusTypeDef i2c_init(void)
 
     gpio.Pin = GPIO_PIN_10 | GPIO_PIN_11;
     gpio.Mode = GPIO_MODE_AF_OD;
-    gpio.Pull = GPIO_NOPULL;
+    gpio.Pull = GPIO_PULLUP;
     gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     gpio.Alternate = GPIO_AF4_I2C2;
     HAL_GPIO_Init(GPIOB, &gpio);
@@ -193,15 +219,37 @@ static void lcd_task(void *argument)
 
             if (status == HAL_OK)
             {
-                status = lcd_print("Hello");
+                status = lcd_print("Hello\n");
                 log_printf("[lcd] print: %d\r\n", (int)status);
+                vTaskDelay(pdMS_TO_TICKS(3000U));
             }
         }
     }
 
+    lcd_write(0x01U, 0U);
+    vTaskDelay(pdMS_TO_TICKS(2U));
+
+    lcd_set_cursor(0U, 0U);
+    lcd_print("Servo Angle:");
+
     for (;;)
     {
-        vTaskDelay(pdMS_TO_TICKS(1000U));
+        static uint32_t last_angle = 999U;
+        char line[17];
+        uint32_t current_angle = servo_angle;
+
+        if (current_angle != last_angle)
+        {
+            last_angle = current_angle;
+
+            snprintf(line, sizeof(line), "%3lu degree     ",
+                     (unsigned long)current_angle);
+
+            lcd_set_cursor(1U, 0U);
+            lcd_print(line);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(50U));
     }
 }
 
@@ -247,6 +295,8 @@ static void pwm_init(void)
 static void pwm_task(void *argument)
 {
     static const uint32_t pulse_us[] = {1000U, 1500U, 2000U};
+    static const uint32_t angle[] = {0U, 90U, 180U};
+
     uint32_t step = 0U;
 
     (void)argument;
@@ -254,7 +304,11 @@ static void pwm_task(void *argument)
     for (;;)
     {
         __HAL_TIM_SET_COMPARE(&pwm_timer, TIM_CHANNEL_1, pulse_us[step]);
+
+        servo_angle = angle[step];
+
         step = (step + 1U) % PWM_STEPS;
+
         vTaskDelay(pdMS_TO_TICKS(PWM_STEP_MS));
     }
 }
@@ -350,6 +404,7 @@ static void uart4_task(void *argument)
         }
     }
 }
+
 int main(void)
 {
     HAL_Init();
@@ -369,6 +424,7 @@ int main(void)
         {
         }
     }
+
     if (xTaskCreate(blink_task, "blink", 128U, NULL, 1U, NULL) != pdPASS)
     {
         for (;;)
@@ -396,6 +452,7 @@ int main(void)
         {
         }
     }
+
     vTaskStartScheduler();
 
     for (;;)
